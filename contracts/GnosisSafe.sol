@@ -123,7 +123,6 @@ contract GnosisSafe is
         bytes memory signatures
     ) public payable virtual returns (bool success) {
         bytes32 txHash;
-     //   bytes memory data2;
         // Use scope here to limit variable lifetime and prevent `stack too deep` errors
         {
          
