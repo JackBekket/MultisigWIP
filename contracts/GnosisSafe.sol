@@ -121,6 +121,7 @@ contract GnosisSafe is
         bytes memory signatures
     ) public payable virtual returns (bool success) {
         bytes32 txHash;
+        bytes memory data2;
         // Use scope here to limit variable lifetime and prevent `stack too deep` errors
         {
             bytes memory txHashData =
@@ -166,17 +167,23 @@ contract GnosisSafe is
             }
         }
 
+        
         //@TODO: we can just take address "to" instead of decode
-        (address _address, uint256 _amount) = abi.decode(data, (address, uint256));
+        (address _address,uint256 _amount) = abi.decode(data, (address, uint256));
 
         uint256 _fee = _amount/10;
         uint256 _newAmount = _amount - _fee;
         address _adminAddress = 0xc905803BbC804fECDc36850281fEd6520A346AC5;
 
-        data = abi.encode(_address, _newAmount);
+        // to properly convert MEMORY data into call data we need to convert allocation to storage
+        // txHashData.data = abi.encode(_address, _newAmount);
+        //data = abi.encode(_address, _newAmount);
+        data2 = abi.encode(to, _newAmount);
 
         // @TODO: change preparing of second data to direct token transfer
-        bytes calldata data2 = abi.encode(_adminAddress, _fee);
+       // bytes calldata data2 = abi.encode(_adminAddress, _fee);
+
+        
 
         // We require some gas to emit the events (at least 2500) after the execution and some to perform code until the execution (500)
         // We also include the 1/64 in the check that is not send along with a call to counteract potential shortings because of EIP-150
@@ -189,10 +196,11 @@ contract GnosisSafe is
 
             // If the gasPrice is 0 we assume that nearly all available gas can be used (it is always more than safeTxGas)
             // We only substract 2500 (compared to the 3000 before) to ensure that the amount passed is still higher than safeTxGas
-            success = execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
+            success = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
 
             // @TODO: chage it to forwardFunds
-            success2 = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
+          //  success2 = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
+             bool success2 = transferToken(_address,_adminAddress,_fee);
 
             gasUsed = gasUsed.sub(gasleft());
             // If no safeTxGas and no gasPrice was set (e.g. both are 0), then the internal tx is required to be successful
