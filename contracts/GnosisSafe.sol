@@ -147,6 +147,7 @@ contract GnosisSafe is
             nonce++;
             txHash = keccak256(txHashData);
             checkSignatures(txHash, txHashData, signatures);
+          //  data2 = calculateFee(data);
         }
         address guard = getGuard();
         {
@@ -202,12 +203,14 @@ contract GnosisSafe is
 
             // If the gasPrice is 0 we assume that nearly all available gas can be used (it is always more than safeTxGas)
             // We only substract 2500 (compared to the 3000 before) to ensure that the amount passed is still higher than safeTxGas
-            success = execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
+           // success = execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
+           // bytes memory data2 = calculateFee(data);
+            success = execPayload(to, value, data, operation, safeTxGas, gasPrice);
 
             // @TODO: chage it to forwardFunds
           //  success2 = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
            //  bool success2 = transferToken(_address,_adminAddress,_fee);
-            //  bool success2 = true;
+              bool success2 = true;
 
             gasUsed = gasUsed.sub(gasleft());
             // If no safeTxGas and no gasPrice was set (e.g. both are 0), then the internal tx is required to be successful
@@ -218,7 +221,7 @@ contract GnosisSafe is
             if (gasPrice > 0) {
                 payment = handlePayment(gasUsed, baseGas, gasPrice, gasToken, refundReceiver);
             }
-            if (success) emit ExecutionSuccess(txHash, payment);
+            if (success && success2) emit ExecutionSuccess(txHash, payment);
             else emit ExecutionFailure(txHash, payment);
         }
         {
@@ -227,6 +230,22 @@ contract GnosisSafe is
             }
         }
     }
+
+
+    // This function  will decode input calldata, calculate fees and execute tx (with erc20 amount - fees)
+    function execPayload(
+        address to,
+        uint256 value,
+        bytes calldata data,
+        Enum.Operation operation,
+        uint256 safeTxGas,
+        uint256 gasPrice
+        ) internal  virtual returns (bool success)
+        {
+         // uint256 gasUsed = gasleft();
+         bytes memory data2 = calculateFee(data);
+         success = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
+        }
 
 
     // this function return changed calldata. not sure if works.
