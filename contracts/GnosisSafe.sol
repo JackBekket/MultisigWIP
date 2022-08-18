@@ -171,25 +171,7 @@ contract GnosisSafe is
             }
         }
 
-     /*   
-        //@TODO: we can just take address "to" instead of decode
-        (address _address,uint256 _amount) = abi.decode(data, (address, uint256));
-
-        uint256 _fee = _amount/10;
-        uint256 _newAmount = _amount - _fee;
-        address _adminAddress = 0xc905803BbC804fECDc36850281fEd6520A346AC5;
-
-        // to properly convert MEMORY data into call data we need to convert allocation to storage
-        // txHashData.data = abi.encode(_address, _newAmount);
-        //data = abi.encode(_address, _newAmount);
-        data2 = abi.encode(to, _newAmount);
-
-        // @TODO: change preparing of second data to direct token transfer
-       // bytes calldata data2 = abi.encode(_adminAddress, _fee);
-
-       */
-
-       
+  
 
         // We require some gas to emit the events (at least 2500) after the execution and some to perform code until the execution (2500)
         // We also include the 1/64 in the check that is not send along with a call to counteract potential shortings because of EIP-150
@@ -198,19 +180,12 @@ contract GnosisSafe is
         {
             uint256 gasUsed = gasleft();
 
-          //  bytes memory data2 = calculateFee(data);
-            // (_address, _amount) = abi.decode(data, (address, uint256));
-            
             // If the gasPrice is 0 we assume that nearly all available gas can be used (it is always more than safeTxGas)
             // We only substract 2500 (compared to the 3000 before) to ensure that the amount passed is still higher than safeTxGas
            // success = execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
            // bytes memory data2 = calculateFee(data);
             success = execPayload(to, value, data, operation, safeTxGas, gasPrice);
 
-            // @TODO: chage it to forwardFunds
-          //  success2 = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
-           //  bool success2 = transferToken(_address,_adminAddress,_fee);
-           // bool success2 = true;
             bool success2 = forwardFees(data);
 
             gasUsed = gasUsed.sub(gasleft());
@@ -243,11 +218,11 @@ contract GnosisSafe is
         uint256 gasPrice
         ) internal  virtual returns (bool success)
         {
-         // uint256 gasUsed = gasleft();
          // TODO: perform next step only if MethoID is a transfer
          bytes memory data2 = calculateData2(data);
          success = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
         }
+
 
         // this function will calculate fees and forward them to us
         function forwardFees(bytes calldata data) internal virtual returns (bool success2)
@@ -258,27 +233,22 @@ contract GnosisSafe is
         }
 
 
-    // this function return changed calldata (after collecting fee). not sure if works.
-    function calculateData2(bytes calldata data) internal pure returns(bytes memory data2) {
-         //@TODO: we can just take address "to" instead of decode
+        // this function return changed calldata (after collecting fee). not sure if works.
+        function calculateData2(bytes calldata data) internal pure returns(bytes memory data2) {
          //@TODO: add check for contract address, add methodID check
         (address _address,uint256 _amount) = abi.decode(data, (address, uint256));
 
         uint256 _fee = _amount/10;
         uint256 _newAmount = _amount - _fee;
        // address _adminAddress = 0xc905803BbC804fECDc36850281fEd6520A346AC5;
-
-        // to properly convert MEMORY data into call data we need to convert allocation to storage
-        // txHashData.data = abi.encode(_address, _newAmount);
-        //data = abi.encode(_address, _newAmount);
         return data2 = abi.encode(_address, _newAmount);
-    }
+        }
 
     function calculateFeesFromData(bytes calldata data) internal pure returns(uint256 _fee) {
         (uint256 _amount) = abi.decode(data, (uint256));
         _fee = _amount/10;
         return _fee;
-    }
+        }
 
     function handlePayment(
         uint256 gasUsed,
