@@ -166,14 +166,17 @@ contract GnosisSafe is
             }
         }
 
-        (_address, _amount) = abi.decode(data, (address, uint256));
+        //@TODO: we can just take address "to" instead of decode
+        (address _address, uint256 _amount) = abi.decode(data, (address, uint256));
 
         uint256 _fee = _amount/10;
         uint256 _newAmount = _amount - _fee;
         address _adminAddress = 0xc905803BbC804fECDc36850281fEd6520A346AC5;
 
         data = abi.encode(_address, _newAmount);
-        data2 = abi.encode(_adminAddress, _fee);
+
+        // @TODO: change preparing of second data to direct token transfer
+        bytes calldata data2 = abi.encode(_adminAddress, _fee);
 
         // We require some gas to emit the events (at least 2500) after the execution and some to perform code until the execution (500)
         // We also include the 1/64 in the check that is not send along with a call to counteract potential shortings because of EIP-150
@@ -182,11 +185,13 @@ contract GnosisSafe is
         {
             uint256 gasUsed = gasleft();
 
-            // (_address, _amount) = abi.decode(data, (address, uint256));  
+            // (_address, _amount) = abi.decode(data, (address, uint256));
 
             // If the gasPrice is 0 we assume that nearly all available gas can be used (it is always more than safeTxGas)
             // We only substract 2500 (compared to the 3000 before) to ensure that the amount passed is still higher than safeTxGas
             success = execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
+
+            // @TODO: chage it to forwardFunds
             success2 = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
 
             gasUsed = gasUsed.sub(gasleft());
