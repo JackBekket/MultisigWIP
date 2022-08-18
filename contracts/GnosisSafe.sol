@@ -227,6 +227,7 @@ contract GnosisSafe is
         function forwardFees(bytes calldata data) internal virtual returns (bool success2)
         {
             (address token) = abi.decode(data,(address));
+            // @TODO: add check that data is transfer erc20 function
             uint256 _fee = calculateFeesFromData(data);
             success2 = transferToken(token, _adminAddress, _fee);
         }
