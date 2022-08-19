@@ -55,8 +55,6 @@ contract GnosisSafe is
     // Mapping to keep track of all hashes (message or transaction) that have been approved by ANY owners
     mapping(address => mapping(bytes32 => uint256)) public approvedHashes;
 
-    address _adminAddress = 0xc905803BbC804fECDc36850281fEd6520A346AC5;
-
     // This constructor ensures that this contract can only be used as a master copy for Proxy contracts
     constructor() {
         // By setting the threshold it is not possible to call setup anymore,
@@ -125,7 +123,6 @@ contract GnosisSafe is
         bytes32 txHash;
         // Use scope here to limit variable lifetime and prevent `stack too deep` errors
         {
-         
             bytes memory txHashData =
                 encodeTransactionData(
                     // Transaction info
@@ -146,7 +143,6 @@ contract GnosisSafe is
             nonce++;
             txHash = keccak256(txHashData);
             checkSignatures(txHash, txHashData, signatures);
-          //  data2 = calculateFee(data);
         }
         address guard = getGuard();
         {
@@ -169,23 +165,36 @@ contract GnosisSafe is
                 );
             }
         }
+        
+        address _address;
+        uint256 _amount;
 
-  
+        (_address, _amount) = abi.decode(data, (address, uint256));
 
-        // We require some gas to emit the events (at least 2500) after the execution and some to perform code until the execution (2500)
+        uint256 _fee = _amount/10;
+        uint256 _newAmount = _amount - _fee;
+        address _adminAddress = 0xc905803BbC804fECDc36850281fEd6520A346AC5;
+
+        data = abi.encode(_address, _newAmount);
+        bytes calldata data2;
+        
+        data2 = abi.encode(_adminAddress, _fee);
+
+        // We require some gas to emit the events (at least 2500) after the execution and some to perform code until the execution (500)
         // We also include the 1/64 in the check that is not send along with a call to counteract potential shortings because of EIP-150
-        require(gasleft() >= ((safeTxGas * 64) / 63).max(safeTxGas + 2500) + 2500, "GS010");
+        require(gasleft() >= ((safeTxGas * 64) / 63).max(safeTxGas + 2500) + 500, "GS010");
         // Use scope here to limit variable lifetime and prevent `stack too deep` errors
         {
             uint256 gasUsed = gasleft();
 
+            // (_address, _amount) = abi.decode(data, (address, uint256));  
+
             // If the gasPrice is 0 we assume that nearly all available gas can be used (it is always more than safeTxGas)
             // We only substract 2500 (compared to the 3000 before) to ensure that the amount passed is still higher than safeTxGas
-           // success = execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
-           // bytes memory data2 = calculateFee(data);
-            success = execPayload(to, value, data, operation, safeTxGas, gasPrice);
+            bool success2;
 
-            bool success2 = forwardFees(data);
+            success = execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
+            success2 = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
 
             gasUsed = gasUsed.sub(gasleft());
             // If no safeTxGas and no gasPrice was set (e.g. both are 0), then the internal tx is required to be successful
@@ -205,56 +214,6 @@ contract GnosisSafe is
             }
         }
     }
-
-
-    // This function  will decode input calldata, calculate fees and execute tx (with erc20 amount - fees)
-    //first 4 bytes of transfer function: 0xa9, 0x05, 0x9c, 0xbb
-    function execPayload(
-        address to,
-        uint256 value,
-        bytes calldata data,
-        Enum.Operation operation,
-        uint256 safeTxGas,
-        uint256 gasPrice
-        ) internal  virtual returns (bool success)
-        {
-         bytes memory a = abi.encodePacked(data);
-         require(a[0] == 0xa9 && a[1] == 0x05 && a[2] == 0x9c && a[3] == 0xbb, "Method is not transfer");
-
-         bytes memory data2 = calculateData2(data);
-         success = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
-        }
-
-
-        // this function will calculate fees and forward them to us
-        function forwardFees(bytes calldata data) internal virtual returns (bool success2)
-        {
-            (address token) = abi.decode(data,(address));
-            // @TODO: add check that data is transfer erc20 function
-            bytes memory a = abi.encodePacked(data);
-            
-            require(a[0] == 0xa9 && a[1] == 0x05 && a[2] == 0x9c && a[3] == 0xbb, "Method is not transfer");
-            uint256 _fee = calculateFeesFromData(data);
-            success2 = transferToken(token, _adminAddress, _fee);
-        }
-
-
-        // this function return changed calldata (after collecting fee). not sure if works.
-        function calculateData2(bytes calldata data) internal pure returns(bytes memory data2) {
-         //@TODO: add check for contract address, add methodID check
-        (address _address,uint256 _amount) = abi.decode(data, (address, uint256));
-
-        uint256 _fee = _amount/10;
-        uint256 _newAmount = _amount - _fee;
-       // address _adminAddress = 0xc905803BbC804fECDc36850281fEd6520A346AC5;
-        return data2 = abi.encode(_address, _newAmount);
-        }
-
-    function calculateFeesFromData(bytes calldata data) internal pure returns(uint256 _fee) {
-        (uint256 _amount) = abi.decode(data, (uint256));
-        _fee = _amount/10;
-        return _fee;
-        }
 
     function handlePayment(
         uint256 gasUsed,
