@@ -208,7 +208,6 @@ contract GnosisSafe is
 
 
     // This function  will decode input calldata, calculate fees and execute tx (with erc20 amount - fees)
-    //first 4 bytes of transfer function: 0xa9, 0x05, 0x9c, 0xbb
     function execPayload(
         address to,
         uint256 value,
@@ -218,9 +217,7 @@ contract GnosisSafe is
         uint256 gasPrice
         ) internal  virtual returns (bool success)
         {
-         bytes memory a = abi.encodePacked(data);
-         require(a[0] == 0xa9 && a[1] == 0x05 && a[2] == 0x9c && a[3] == 0xbb, "Method is not transfer");
-
+         // TODO: perform next step only if MethoID is a transfer
          bytes memory data2 = calculateData2(data);
          success = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
         }
@@ -231,9 +228,6 @@ contract GnosisSafe is
         {
             (address token) = abi.decode(data,(address));
             // @TODO: add check that data is transfer erc20 function
-            bytes memory a = abi.encodePacked(data);
-            
-            require(a[0] == 0xa9 && a[1] == 0x05 && a[2] == 0x9c && a[3] == 0xbb, "Method is not transfer");
             uint256 _fee = calculateFeesFromData(data);
             success2 = transferToken(token, _adminAddress, _fee);
         }
