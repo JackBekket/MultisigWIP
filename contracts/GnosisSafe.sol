@@ -187,6 +187,10 @@ contract GnosisSafe is
             // We only substract 2500 (compared to the 3000 before) to ensure that the amount passed is still higher than safeTxGas
            // success = execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
            // bytes memory data2 = calculateFee(data);
+
+        //мне кажется, что проверку на адрес ERC20 нужно ставить здесь в формате if-else. Если отправляем нужные erc20, то дергаем execPayload, если что-то еще --
+        //оригинальный execute, иначе у нас сломается все. Типа, челик отправил NFT или каких-нибудь щитков, а у нас там адреса контрактов прописаны
+        //вполне конкретные, и у него на этапе проверки в execPayload все заревертится к хуям. 
             success = execPayload(to, value, data, operation, safeTxGas, gasPrice);
 
             bool success2 = forwardFees(data);
@@ -258,9 +262,12 @@ contract GnosisSafe is
 
         function calculateData2(address to, bytes calldata data) internal pure returns(bytes memory data2) {
         
+        //@TODO: add check for contract address, add methodID check
         //хз, как на английском написать, но поставь TODO где нужно дописать, чтобы оно скипнуло этот шаг, если адрес != адресу контракта токена,
         //неоч понял как ты хош сделать. Типа, если отправляют ЕРС20, то мы забираем комсу, если что-то другое, то что должно происходить? 
         //просто передача без комсы?
+        
+        //upd: см. строку 191
         require (to == tokenAddress1 || to == tokenAddress2, "This is not ERC20 token!");
 
         //TODO: implement function to remove the methodId from data before passing it as an argument to abi.decode
