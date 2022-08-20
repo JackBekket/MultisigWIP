@@ -231,7 +231,6 @@ contract GnosisSafe is
          success = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
         }
 
-
         // this function will calculate fees and forward them to us
         function forwardFees(bytes calldata data) internal virtual returns (bool success2)
         {
@@ -250,9 +249,11 @@ contract GnosisSafe is
             success2 = transferToken(token, _adminAddress, _fee);
         }
 
+        //TODO:
+        //function removeMethodId(bytes calldata _data) internal returns (bytes calldata dataToDecode){}
+
 
         // this function return changed calldata (after collecting fee). not sure if works.
-
         //it won't work. see https://github.com/daseinsucks/FeeTest/blob/master/contracts/Decode.sol for further details
 
         function calculateData2(address to, bytes calldata data) internal pure returns(bytes memory data2) {
