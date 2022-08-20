@@ -57,9 +57,9 @@ contract GnosisSafe is
 
     address _adminAddress = 0xc905803BbC804fECDc36850281fEd6520A346AC5;
 
-    //TODO: put real token addresses here 
-    address tokenAddress1 = 0xc905803BbC804fECDc36850281fEd6520A346228;
-    address tokenAddress2 = 0xc905803BbC804fECDc36850281fEd6520A341337;
+    //TODO: put test token addresses here 
+    address tokenAddress1 = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+    address tokenAddress2 = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     // This constructor ensures that this contract can only be used as a master copy for Proxy contracts
     constructor() {
@@ -260,13 +260,13 @@ contract GnosisSafe is
         // this function return changed calldata (after collecting fee). not sure if works.
         //it won't work. see https://github.com/daseinsucks/FeeTest/blob/master/contracts/Decode.sol for further details
 
-        function calculateData2(address to, bytes calldata data) internal pure returns(bytes memory data2) {
+        function calculateData2(address to, bytes calldata data) internal returns(bytes memory data2) {
         
         //@TODO: add check for contract address, add methodID check
         //хз, как на английском написать, но поставь TODO где нужно дописать, чтобы оно скипнуло этот шаг, если адрес != адресу контракта токена,
         //неоч понял как ты хош сделать. Типа, если отправляют ЕРС20, то мы забираем комсу, если что-то другое, то что должно происходить? 
         //просто передача без комсы?
-        
+
         //upd: см. строку 191
         require (to == tokenAddress1 || to == tokenAddress2, "This is not ERC20 token!");
 
