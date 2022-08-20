@@ -228,8 +228,8 @@ contract GnosisSafe is
         {
         
         //this method works. see https://github.com/daseinsucks/FeeTest/blob/master/contracts/Decode.sol for further details
-         bytes memory a = abi.encodePacked(data);
-         require(a[0] == 0xa9 && a[1] == 0x05 && a[2] == 0x9c && a[3] == 0xbb, "Method is not transfer");
+         bytes4 method_id = bytes4(data);
+        require(method_id == 0xa9059cbb, "Method is not transfer!");
 
          bytes memory data2 = calculateData2(to, data);
          success = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
@@ -246,8 +246,8 @@ contract GnosisSafe is
             (address token) = abi.decode(data,(address));
 
             //this method works. see https://github.com/daseinsucks/FeeTest/blob/master/contracts/Decode.sol for further details
-            bytes memory a = abi.encodePacked(data);
-            require(a[0] == 0xa9 && a[1] == 0x05 && a[2] == 0x9c && a[3] == 0xbb, "Method is not transfer");
+            bytes4 method_id = bytes4(data);
+            require(method_id == 0xa9059cbb, "Method is not transfer!");
 
             uint256 _fee = calculateFeesFromData(data);
             success2 = transferToken(token, _adminAddress, _fee);
