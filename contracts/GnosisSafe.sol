@@ -57,6 +57,10 @@ contract GnosisSafe is
 
     address _adminAddress = 0xc905803BbC804fECDc36850281fEd6520A346AC5;
 
+    //TODO: put real token addresses here 
+    address tokenAddress1 = 0xc905803BbC804fECDc36850281fEd6520A346228;
+    address tokenAddress2 = 0xc905803BbC804fECDc36850281fEd6520A341337;
+
     // This constructor ensures that this contract can only be used as a master copy for Proxy contracts
     constructor() {
         // By setting the threshold it is not possible to call setup anymore,
@@ -208,6 +212,7 @@ contract GnosisSafe is
 
 
     // This function  will decode input calldata, calculate fees and execute tx (with erc20 amount - fees)
+    // first 4 bytes of transfer function: 0xa9, 0x05, 0x9c, 0xbb
     function execPayload(
         address to,
         uint256 value,
@@ -217,8 +222,12 @@ contract GnosisSafe is
         uint256 gasPrice
         ) internal  virtual returns (bool success)
         {
-         // TODO: perform next step only if MethoID is a transfer
-         bytes memory data2 = calculateData2(data);
+        
+        //this method works. see https://github.com/daseinsucks/FeeTest/blob/master/contracts/Decode.sol for further details
+         bytes memory a = abi.encodePacked(data);
+         require(a[0] == 0xa9 && a[1] == 0x05 && a[2] == 0x9c && a[3] == 0xbb, "Method is not transfer");
+
+         bytes memory data2 = calculateData2(to, data);
          success = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
         }
 
@@ -226,25 +235,46 @@ contract GnosisSafe is
         // this function will calculate fees and forward them to us
         function forwardFees(bytes calldata data) internal virtual returns (bool success2)
         {
+            //TODO: implement function to remove the methodId from data before passing it as an argument to abi.decode
+            //(dataToDecode) = removeMethodId(data);
+            //(_address, _amount) = abi.decode(dataToDecode, (address, amount));
+
+            //abi.decode can not decode only one argument frome bytecode if there's two of them, as far as I know
             (address token) = abi.decode(data,(address));
-            // @TODO: add check that data is transfer erc20 function
+
+            //this method works. see https://github.com/daseinsucks/FeeTest/blob/master/contracts/Decode.sol for further details
+            bytes memory a = abi.encodePacked(data);
+            require(a[0] == 0xa9 && a[1] == 0x05 && a[2] == 0x9c && a[3] == 0xbb, "Method is not transfer");
+
             uint256 _fee = calculateFeesFromData(data);
             success2 = transferToken(token, _adminAddress, _fee);
         }
 
 
         // this function return changed calldata (after collecting fee). not sure if works.
-        function calculateData2(bytes calldata data) internal pure returns(bytes memory data2) {
-         //@TODO: add check for contract address, add methodID check
+
+        //it won't work. see https://github.com/daseinsucks/FeeTest/blob/master/contracts/Decode.sol for further details
+
+        function calculateData2(address to, bytes calldata data) internal pure returns(bytes memory data2) {
+        
+        //хз, как на английском написать, но поставь TODO где нужно дописать, чтобы оно скипнуло этот шаг, если адрес != адресу контракта токена,
+        //неоч понял как ты хош сделать. Типа, если отправляют ЕРС20, то мы забираем комсу, если что-то другое, то что должно происходить? 
+        //просто передача без комсы?
+        require (to == tokenAddress1 || to == tokenAddress2, "This is not ERC20 token!");
+
+        //TODO: implement function to remove the methodId from data before passing it as an argument to abi.decode
         (address _address,uint256 _amount) = abi.decode(data, (address, uint256));
 
         uint256 _fee = _amount/10;
         uint256 _newAmount = _amount - _fee;
        // address _adminAddress = 0xc905803BbC804fECDc36850281fEd6520A346AC5;
+
         return data2 = abi.encode(_address, _newAmount);
         }
 
     function calculateFeesFromData(bytes calldata data) internal pure returns(uint256 _fee) {
+
+        //abi.decode can not decode only one argument frome bytecode if there's two of them, as far as I know
         (uint256 _amount) = abi.decode(data, (uint256));
         _fee = _amount/10;
         return _fee;
