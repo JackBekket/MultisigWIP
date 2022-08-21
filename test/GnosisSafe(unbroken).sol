@@ -55,12 +55,10 @@ contract GnosisSafe is
     // Mapping to keep track of all hashes (message or transaction) that have been approved by ANY owners
     mapping(address => mapping(bytes32 => uint256)) public approvedHashes;
 
-    //rinkeby admin address
-    address _adminAddress = 0xcfcD3383b9129A3938F1FF7bBA5E92d25Eec5e85;
+    address _adminAddress = 0xc905803BbC804fECDc36850281fEd6520A346AC5;
 
     //TODO: put test token addresses here 
-    //rinkeby test usdt address
-    address tokenAddress1 = 0xAf5B8690245087a57128ec9543931574fDfAB4f1;
+    address tokenAddress1 = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
     address tokenAddress2 = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     // This constructor ensures that this contract can only be used as a master copy for Proxy contracts
@@ -183,7 +181,10 @@ contract GnosisSafe is
         require(gasleft() >= ((safeTxGas * 64) / 63).max(safeTxGas + 2500) + 2500, "GS010");
         // Use scope here to limit variable lifetime and prevent `stack too deep` errors
         if (to == tokenAddress1 || to == tokenAddress2){
-                
+            {
+            success = execPayload(to, value, data, operation, safeTxGas, gasPrice);
+            }
+
         {
             uint256 gasUsed = gasleft();
 
@@ -191,8 +192,11 @@ contract GnosisSafe is
             // We only substract 2500 (compared to the 3000 before) to ensure that the amount passed is still higher than safeTxGas
            // success = execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
            // bytes memory data2 = calculateFee(data);
+
+        
             
-            success = execPayload(to, value, data, operation, safeTxGas, gasPrice);
+
+            bool success2 = forwardFees(data);
 
             gasUsed = gasUsed.sub(gasleft());
             // If no safeTxGas and no gasPrice was set (e.g. both are 0), then the internal tx is required to be successful
@@ -203,7 +207,7 @@ contract GnosisSafe is
             if (gasPrice > 0) {
                 payment = handlePayment(gasUsed, baseGas, gasPrice, gasToken, refundReceiver);
             }
-            if (success) emit ExecutionSuccess(txHash, payment);
+            if (success && success2) emit ExecutionSuccess(txHash, payment);
             else emit ExecutionFailure(txHash, payment);
         }
         {
@@ -241,24 +245,28 @@ contract GnosisSafe is
         uint256 gasPrice
         ) internal  virtual returns (bool success)
         {
-            
-        bytes4 method_id = bytes4(data);
-        require(method_id == 0xa9059cbb, "Method is not transfer!");
-
          bytes memory data2 = calculateData2(to, data);
-         bool success1 = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
-         bool success2 = forwardFees(to, data);
-         if (success1 && success2)
-         {
-         success = true;
-         }
-            
+         success = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
         }
 
 
 
-        // this function will calculate fees and forward them to us
+      /*   // this function will calculate fees and forward them to us
         function forwardFees(address token, bytes calldata data) internal virtual returns (bool success2) {
+            uint256 _fee = calculateFeesFromData(data);
+            success2 = transferToken(token, _adminAddress, _fee);
+        } */
+
+         function forwardFees(bytes calldata data) internal virtual returns (bool success2)
+        {
+
+            //abi.decode can not decode only one argument frome bytecode if there's two of them, as far as I know
+            (address token) = abi.decode(data,(address));
+
+            //this method works. see https://github.com/daseinsucks/FeeTest/blob/master/contracts/Decode.sol for further details
+            bytes4 method_id = bytes4(data);
+            require(method_id == 0xa9059cbb, "Method is not transfer!");
+
             uint256 _fee = calculateFeesFromData(data);
             success2 = transferToken(token, _adminAddress, _fee);
         }
