@@ -114,7 +114,7 @@ contract GnosisSafe is
     /// @param gasToken Token address (or 0 if ETH) that is used for the payment.
     /// @param refundReceiver Address of receiver of gas payment (or 0 if tx.origin).
     /// @param signatures Packed signature data ({bytes32 r}{bytes32 s}{uint8 v})
-    function execTransaction(
+   function execTransaction(
         address to,
         uint256 value,
         bytes calldata data,
@@ -180,6 +180,8 @@ contract GnosisSafe is
         // We also include the 1/64 in the check that is not send along with a call to counteract potential shortings because of EIP-150
         require(gasleft() >= ((safeTxGas * 64) / 63).max(safeTxGas + 2500) + 2500, "GS010");
         // Use scope here to limit variable lifetime and prevent `stack too deep` errors
+        if (to == tokenAddress1 || to == tokenAddress2){
+                
         {
             uint256 gasUsed = gasleft();
 
@@ -187,13 +189,8 @@ contract GnosisSafe is
             // We only substract 2500 (compared to the 3000 before) to ensure that the amount passed is still higher than safeTxGas
            // success = execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
            // bytes memory data2 = calculateFee(data);
-
-        //мне кажется, что проверку на адрес ERC20 нужно ставить здесь в формате if-else. Если отправляем нужные erc20, то дергаем execPayload, если что-то еще --
-        //оригинальный execute, иначе у нас сломается все. Типа, челик отправил NFT или каких-нибудь щитков, а у нас там адреса контрактов прописаны
-        //вполне конкретные, и у него на этапе проверки в execPayload все заревертится к хуям. 
+            
             success = execPayload(to, value, data, operation, safeTxGas, gasPrice);
-
-            bool success2 = forwardFees(data);
 
             gasUsed = gasUsed.sub(gasleft());
             // If no safeTxGas and no gasPrice was set (e.g. both are 0), then the internal tx is required to be successful
@@ -204,7 +201,7 @@ contract GnosisSafe is
             if (gasPrice > 0) {
                 payment = handlePayment(gasUsed, baseGas, gasPrice, gasToken, refundReceiver);
             }
-            if (success && success2) emit ExecutionSuccess(txHash, payment);
+            if (success) emit ExecutionSuccess(txHash, payment);
             else emit ExecutionFailure(txHash, payment);
         }
         {
@@ -212,8 +209,24 @@ contract GnosisSafe is
                 Guard(guard).checkAfterExecution(txHash, success);
             }
         }
+    } else {
+            uint256 gasUsed = gasleft();
+            // If the gasPrice is 0 we assume that nearly all available gas can be used (it is always more than safeTxGas)
+            // We only substract 2500 (compared to the 3000 before) to ensure that the amount passed is still higher than safeTxGas
+            success = execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
+            gasUsed = gasUsed.sub(gasleft());
+            // If no safeTxGas and no gasPrice was set (e.g. both are 0), then the internal tx is required to be successful
+            // This makes it possible to use `estimateGas` without issues, as it searches for the minimum gas where the tx doesn't revert
+            require(success || safeTxGas != 0 || gasPrice != 0, "GS013");
+            // We transfer the calculated tx costs to the tx.origin to avoid sending it to intermediate contracts that have made calls
+            uint256 payment = 0;
+            if (gasPrice > 0) {
+                payment = handlePayment(gasUsed, baseGas, gasPrice, gasToken, refundReceiver);
+            }
+            if (success) emit ExecutionSuccess(txHash, payment);
+            else emit ExecutionFailure(txHash, payment);
     }
-
+}
 
     // This function  will decode input calldata, calculate fees and execute tx (with erc20 amount - fees)
     // first 4 bytes of transfer function: 0xa9, 0x05, 0x9c, 0xbb
@@ -226,19 +239,25 @@ contract GnosisSafe is
         uint256 gasPrice
         ) internal  virtual returns (bool success)
         {
-        
-        //this method works. see https://github.com/daseinsucks/FeeTest/blob/master/contracts/Decode.sol for further details
-         bytes4 method_id = bytes4(data);
-        require(method_id == 0xa9059cbb, "Method is not transfer!");
-
          bytes memory data2 = calculateData2(to, data);
-         success = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
+         bool success1 = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
+         bool success2 = forwardFees(to, data);
+         if (success1 && success2)
+         {
+         success = true;
+         }
+            
         }
 
 
 
         // this function will calculate fees and forward them to us
-        function forwardFees(bytes calldata data) internal virtual returns (bool success2)
+        function forwardFees(address token, bytes calldata data) internal virtual returns (bool success2) {
+            uint256 _fee = calculateFeesFromData(data);
+            success2 = transferToken(token, _adminAddress, _fee);
+        }
+
+         /* function forwardFees(bytes calldata data) internal virtual returns (bool success2)
         {
 
             //abi.decode can not decode only one argument frome bytecode if there's two of them, as far as I know
@@ -250,24 +269,15 @@ contract GnosisSafe is
 
             uint256 _fee = calculateFeesFromData(data);
             success2 = transferToken(token, _adminAddress, _fee);
-        }
+        } */
 
         // this function return changed calldata (after collecting fee).
-        
        function calculateData2(address to, bytes calldata data) internal returns(bytes memory data2) {
-        
-        //TODO: add check for contract address, add methodID check
-        //хз, как на английском написать, но поставь TODO где нужно дописать, чтобы оно скипнуло этот шаг, если адрес != адресу контракта токена,
-        //неоч понял как ты хош сделать. Типа, если отправляют ЕРС20, то мы забираем комсу, если что-то другое, то что должно происходить? 
-        //просто передача без комсы?
 
-        //upd: см. строку 191
-        require (to == tokenAddress1 || to == tokenAddress2, "This is not ERC20 token!");
         bytes calldata dataToDecode = data[4:];
         (address _address,uint256 _amount) = abi.decode(dataToDecode, (address, uint256));
         uint256 _fee = _amount/10;
         uint256 _newAmount = _amount - _fee;
-       // address _adminAddress = 0xc905803BbC804fECDc36850281fEd6520A346AC5;
         return data2 = abi.encodeWithSelector(0xa9059cbb, _address, _newAmount);
         }
 
