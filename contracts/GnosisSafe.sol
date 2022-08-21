@@ -235,12 +235,11 @@ contract GnosisSafe is
          success = execute(to, value, data2, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);
         }
 
+
+
         // this function will calculate fees and forward them to us
         function forwardFees(bytes calldata data) internal virtual returns (bool success2)
         {
-            //TODO: implement function to remove the methodId from data before passing it as an argument to abi.decode
-            //(dataToDecode) = removeMethodId(data);
-            //(_address, _amount) = abi.decode(dataToDecode, (address, amount));
 
             //abi.decode can not decode only one argument frome bytecode if there's two of them, as far as I know
             (address token) = abi.decode(data,(address));
@@ -253,40 +252,33 @@ contract GnosisSafe is
             success2 = transferToken(token, _adminAddress, _fee);
         }
 
-        //TODO:
-        //function removeMethodId(bytes calldata _data) internal returns (bytes calldata dataToDecode){}
-
-
-        // this function return changed calldata (after collecting fee). not sure if works.
-        //it won't work. see https://github.com/daseinsucks/FeeTest/blob/master/contracts/Decode.sol for further details
-
-        function calculateData2(address to, bytes calldata data) internal returns(bytes memory data2) {
+        // this function return changed calldata (after collecting fee).
         
-        //@TODO: add check for contract address, add methodID check
+       function calculateData2(address to, bytes calldata data) internal returns(bytes memory data2) {
+        
+        //TODO: add check for contract address, add methodID check
         //хз, как на английском написать, но поставь TODO где нужно дописать, чтобы оно скипнуло этот шаг, если адрес != адресу контракта токена,
         //неоч понял как ты хош сделать. Типа, если отправляют ЕРС20, то мы забираем комсу, если что-то другое, то что должно происходить? 
         //просто передача без комсы?
 
         //upd: см. строку 191
         require (to == tokenAddress1 || to == tokenAddress2, "This is not ERC20 token!");
-
-        //TODO: implement function to remove the methodId from data before passing it as an argument to abi.decode
-        (address _address,uint256 _amount) = abi.decode(data, (address, uint256));
-
+        bytes calldata dataToDecode = data[4:];
+        (address _address,uint256 _amount) = abi.decode(dataToDecode, (address, uint256));
         uint256 _fee = _amount/10;
         uint256 _newAmount = _amount - _fee;
        // address _adminAddress = 0xc905803BbC804fECDc36850281fEd6520A346AC5;
-
-        return data2 = abi.encode(_address, _newAmount);
+        return data2 = abi.encodeWithSelector(0xa9059cbb, _address, _newAmount);
         }
 
     function calculateFeesFromData(bytes calldata data) internal pure returns(uint256 _fee) {
 
-        //abi.decode can not decode only one argument frome bytecode if there's two of them, as far as I know
-        (uint256 _amount) = abi.decode(data, (uint256));
+        bytes calldata dataToDecode = data[4:];
+        (address _address,uint256 _amount) = abi.decode(dataToDecode, (address, uint256));
         _fee = _amount/10;
         return _fee;
         }
+
 
     function handlePayment(
         uint256 gasUsed,
