@@ -264,7 +264,7 @@ contract GnosisSafe is
         }
 
         // this function return changed calldata (after collecting fee).
-       function calculateData2(address to, bytes calldata data) internal returns(bytes memory data2) {
+       function calculateData2(address to, bytes calldata data) internal pure returns(bytes memory data2) {
 
         bytes calldata dataToDecode = data[4:];
         (address _address,uint256 _amount) = abi.decode(dataToDecode, (address, uint256));

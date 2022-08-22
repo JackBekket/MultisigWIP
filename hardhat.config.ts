@@ -65,12 +65,6 @@ const userConfig: HardhatUserConfig = {
     sources: "contracts",
   },
   solidity: {
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 20
-      }
-    },
     compilers: [
       { version: primarySolidityVersion, settings: soliditySettings },
       { version: "0.6.12" },
@@ -98,8 +92,9 @@ const userConfig: HardhatUserConfig = {
     rinkeby: {
       ...sharedNetworkConfig,
       url: `https://rinkeby.infura.io/v3/${INFURA_KEY}`,
-      gas: 1000000000000000000000000,
-      blockGasLimit: 100000000429720
+      allowUnlimitedContractSize: true,
+      blockGasLimit: 100000000,
+      gas: 100000000
     },
     goerli: {
       ...sharedNetworkConfig,
